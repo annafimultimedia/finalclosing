@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Website Convert Final Closing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        .drop-zone {
+            border: 2px dashed #3b82f6;
+            transition: all 0.3s ease;
+        }
+        .drop-zone.drag-over {
+            background-color: #eff6ff;
+            border-color: #2563eb;
+            transform: scale(1.01);
+        }
+        .table-container {
+            max-height: 500px;
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+        /* Sticky Header */
+        thead th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-full mx-auto bg-white rounded-xl shadow-xl overflow-hidden">
+        <div class="bg-blue-600 p-6">
+            <h1 class="text-2xl font-bold text-white">Converter Final Closing to Excel</h1>
+            <p class="text-blue-100 text-sm mt-1">Gunakan fitur drag & drop untuk upload json.</p>
+        </div>
+
+        <div class="p-6">
+            <div id="dropZone" class="drop-zone rounded-xl p-10 text-center cursor-pointer mb-6 group">
+                <div class="space-y-4">
+                    <div class="flex justify-center">
+                        <svg class="w-12 h-12 text-blue-500 group-hover:bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-lg font-medium text-gray-700">Tarik & Lepas file JSON di sini</p>
+                        <p class="text-sm text-gray-500">atau klik untuk memilih file dari komputer</p>
+                    </div>
+                    <input type="file" id="fileInput" class="hidden" accept=".json">
+                </div>
+            </div>
+
+            <div id="actions" class="hidden flex justify-end mb-4">
+                <button onclick="exportToExcel()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 shadow-md transition">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"></path></svg>
+                    Export ke Excel (.xlsx)
+                </button>
+            </div>
+
+            <div id="previewContainer" class="hidden border rounded-lg overflow-hidden shadow-inner">
+                <div class="bg-gray-50 px-4 py-2 border-b font-semibold text-gray-600 flex justify-between items-center">
+                    <span>Preview Data (<span id="rowCount">0</span> Baris)</span>
+                    <span class="text-xs text-gray-400 italic">*Scroll ke bawah/samping untuk melihat semua data</span>
+                </div>
+                <div class="table-container">
+                    <table id="dataTable" class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="p-3 border">NO</th>
+                                <th class="p-3 border">NAMA</th>
+                                <th class="p-3 border">NIK</th>
+                                <th class="p-3 border">NO KK</th>
+                                <th class="p-3 border">ART</th>
+                                <th class="p-3 border">HAMIL</th>
+                                <th class="p-3 border">AUD</th>
+                                <th class="p-3 border">SD</th>
+                                <th class="p-3 border">SMP</th>
+                                <th class="p-3 border">SMA</th>
+                                <th class="p-3 border">DISABIL</th>
+                                <th class="p-3 border">LANSIA</th>
+                                <th class="p-3 border">HAM</th>
+                                <th class="p-3 border">NOMINAL</th>
+                                <th class="p-3 border">ALAMAT</th>
+                                <th class="p-3 border">DESA</th>
+                                <th class="p-3 border">KECAMATAN</th>
+                                <th class="p-3 border">KABUPATEN</th>
+                                <th class="p-3 border">PROVINSI</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const tableBody = document.getElementById('tableBody');
+        const previewContainer = document.getElementById('previewContainer');
+        const actions = document.getElementById('actions');
+        let rawData = [];
+
+        // Fitur Drag & Drop
+        dropZone.onclick = () => fileInput.click();
+        
+        dropZone.ondragover = (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        };
+
+        dropZone.ondragleave = () => dropZone.classList.remove('drag-over');
+
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            handleFile(e.dataTransfer.files[0]);
+        };
+
+        fileInput.onchange = (e) => handleFile(e.target.files[0]);
+
+        function handleFile(file) {
+            if (!file || !file.name.endsWith('.json')) {
+                alert('Mohon masukkan file .json yang valid.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const json = JSON.parse(e.target.result);
+                    rawData = Array.isArray(json) ? json : (json.isi_data || []);
+                    renderTable(rawData);
+                } catch (err) {
+                    alert('Gagal membaca JSON. Pastikan format benar.');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function renderTable(data) {
+            tableBody.innerHTML = '';
+            document.getElementById('rowCount').innerText = data.length;
+            
+            data.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-blue-50 transition border-b";
+                tr.innerHTML = `
+                    <td class="p-3 border text-center font-mono">${index + 1}</td>
+                    <td class="p-3 border font-semibold">${item.nama || ''}</td>
+                    <td class="p-3 border">${(item.nik || '').toString().replace(/^'/, '')}</td>
+                    <td class="p-3 border">${(item.no_kk || '').toString().replace(/^'/, '')}</td>
+                    <td class="p-3 border text-center">${item.jml_art || 0}</td>
+                    <td class="p-3 border text-center">${item.jml_hamil || 0}</td>
+                    <td class="p-3 border text-center">${item.jml_anak_usia_dini || 0}</td>
+                    <td class="p-3 border text-center">${item.jml_anak_sd || 0}</td>
+                    <td class="p-3 border text-center">${item.jml_anak_smp || 0}</td>
+                    <td class="p-3 border text-center">${item.jml_anak_sma || 0}</td>
+                    <td class="p-3 border text-center">${item.jml_disabilitas || 0}</td>
+                    <td class="p-3 border text-center">${item.jml_lansia || 0}</td>
+                    <td class="p-3 border text-center">${item.jml_korban_ham_berat || 0}</td>
+                    <td class="p-3 border font-bold text-blue-700">Rp ${Number(item.nominal_total || 0).toLocaleString('id-ID')}</td>
+                    <td class="p-3 border">${item.alamat_ktp || ''}</td>
+                    <td class="p-3 border">${item.KELUARAHAN || ''}</td>
+                    <td class="p-3 border">${item.KECAMATAN || ''}</td>
+                    <td class="p-3 border">${item.KABUPATEN || ''}</td>
+                    <td class="p-3 border">${item.PROVINSI || ''}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+
+            previewContainer.classList.remove('hidden');
+            actions.classList.remove('hidden');
+            dropZone.classList.add('hidden'); // Sembunyikan dropzone setelah data masuk
+        }
+
+        function exportToExcel() {
+            const worksheetData = rawData.map((item, index) => ({
+                "NO": index + 1,
+                "NAMA": item.nama,
+                "NIK": (item.nik || '').toString().replace(/^'/, ''),
+                "NO KK": (item.no_kk || '').toString().replace(/^'/, ''),
+                "ART": item.jml_art,
+                "HAMIL": item.jml_hamil,
+                "AUD": item.jml_anak_usia_dini,
+                "SD": item.jml_anak_sd,
+                "SMP": item.jml_anak_smp,
+                "SMA": item.jml_anak_sma,
+                "DISABIL": item.jml_disabilitas,
+                "LANSIA": item.jml_lansia,
+                "HAM": item.jml_korban_ham_berat,
+                "NOMINAL": Number(item.nominal_total),
+                "ALAMAT": item.alamat_ktp,
+                "DESA": item.KELUARAHAN,
+                "KECAMATAN": item.KECAMATAN,
+                "KABUPATEN": item.KABUPATEN,
+                "PROVINSI": item.PROVINSI
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Data KPM");
+            XLSX.writeFile(workbook, `Data_SIKSNG_${new Date().getTime()}.xlsx`);
+        }
+    </script>
+</body>
+</html>
