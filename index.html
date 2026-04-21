@@ -21,7 +21,6 @@
             overflow-y: auto;
             overflow-x: auto;
         }
-        /* Sticky Header */
         thead th {
             position: sticky;
             top: 0;
@@ -74,6 +73,8 @@
                                 <th class="p-3 border">NAMA</th>
                                 <th class="p-3 border">NIK</th>
                                 <th class="p-3 border">NO KK</th>
+                                <th class="p-3 border bg-blue-50">TGL LAHIR</th>
+                                <th class="p-3 border bg-blue-50">UMUR</th>
                                 <th class="p-3 border">ART</th>
                                 <th class="p-3 border">HAMIL</th>
                                 <th class="p-3 border">AUD</th>
@@ -83,6 +84,7 @@
                                 <th class="p-3 border">DISABIL</th>
                                 <th class="p-3 border">LANSIA</th>
                                 <th class="p-3 border">HAM</th>
+                                <th class="p-3 border bg-yellow-100">JML KOMPONEN</th>
                                 <th class="p-3 border">NOMINAL</th>
                                 <th class="p-3 border">ALAMAT</th>
                                 <th class="p-3 border">DESA</th>
@@ -106,7 +108,6 @@
         const actions = document.getElementById('actions');
         let rawData = [];
 
-        // Fitur Drag & Drop
         dropZone.onclick = () => fileInput.click();
         
         dropZone.ondragover = (e) => {
@@ -143,11 +144,48 @@
             reader.readAsText(file);
         }
 
+        // Fungsi merapikan Tanggal Lahir menjadi format DD-MM-YYYY
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const cleanDate = dateStr.substring(0, 10); 
+            return cleanDate.split('-').reverse().join('-');
+        }
+
+        // Fungsi menghitung Umur
+        function calculateAge(dateStr) {
+            if (!dateStr) return 0;
+            const birthDate = new Date(dateStr);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            
+            // Cek apakah sudah lewat hari ulang tahun tahun ini
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+            return age;
+        }
+
+        function calculateTotalKomponen(item) {
+            return Number(item.jml_hamil || 0) + 
+                   Number(item.jml_anak_usia_dini || 0) + 
+                   Number(item.jml_anak_sd || 0) + 
+                   Number(item.jml_anak_smp || 0) + 
+                   Number(item.jml_anak_sma || 0) + 
+                   Number(item.jml_disabilitas || 0) + 
+                   Number(item.jml_lansia || 0) + 
+                   Number(item.jml_korban_ham_berat || 0);
+        }
+
         function renderTable(data) {
             tableBody.innerHTML = '';
             document.getElementById('rowCount').innerText = data.length;
             
             data.forEach((item, index) => {
+                const totalKomponen = calculateTotalKomponen(item);
+                const tglLahir = formatDate(item.tgl_lahir);
+                const umur = calculateAge(item.tgl_lahir);
+
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-blue-50 transition border-b";
                 tr.innerHTML = `
@@ -155,6 +193,8 @@
                     <td class="p-3 border font-semibold">${item.nama || ''}</td>
                     <td class="p-3 border">${(item.nik || '').toString().replace(/^'/, '')}</td>
                     <td class="p-3 border">${(item.no_kk || '').toString().replace(/^'/, '')}</td>
+                    <td class="p-3 border text-center bg-blue-50">${tglLahir}</td>
+                    <td class="p-3 border text-center bg-blue-50 font-bold">${umur}</td>
                     <td class="p-3 border text-center">${item.jml_art || 0}</td>
                     <td class="p-3 border text-center">${item.jml_hamil || 0}</td>
                     <td class="p-3 border text-center">${item.jml_anak_usia_dini || 0}</td>
@@ -164,6 +204,7 @@
                     <td class="p-3 border text-center">${item.jml_disabilitas || 0}</td>
                     <td class="p-3 border text-center">${item.jml_lansia || 0}</td>
                     <td class="p-3 border text-center">${item.jml_korban_ham_berat || 0}</td>
+                    <td class="p-3 border text-center font-bold bg-yellow-50 text-blue-800">${totalKomponen}</td>
                     <td class="p-3 border font-bold text-blue-700">Rp ${Number(item.nominal_total || 0).toLocaleString('id-ID')}</td>
                     <td class="p-3 border">${item.alamat_ktp || ''}</td>
                     <td class="p-3 border">${item.KELUARAHAN || ''}</td>
@@ -176,15 +217,21 @@
 
             previewContainer.classList.remove('hidden');
             actions.classList.remove('hidden');
-            dropZone.classList.add('hidden'); // Sembunyikan dropzone setelah data masuk
+            dropZone.classList.add('hidden');
         }
 
         function exportToExcel() {
+            if (rawData.length === 0) return;
+
+            const namaKecamatan = rawData[0].KECAMATAN || 'DATA';
+
             const worksheetData = rawData.map((item, index) => ({
                 "NO": index + 1,
                 "NAMA": item.nama,
                 "NIK": (item.nik || '').toString().replace(/^'/, ''),
                 "NO KK": (item.no_kk || '').toString().replace(/^'/, ''),
+                "TGL LAHIR": formatDate(item.tgl_lahir),
+                "UMUR": calculateAge(item.tgl_lahir),
                 "ART": item.jml_art,
                 "HAMIL": item.jml_hamil,
                 "AUD": item.jml_anak_usia_dini,
@@ -194,6 +241,7 @@
                 "DISABIL": item.jml_disabilitas,
                 "LANSIA": item.jml_lansia,
                 "HAM": item.jml_korban_ham_berat,
+                "JML KOMPONEN": calculateTotalKomponen(item),
                 "NOMINAL": Number(item.nominal_total),
                 "ALAMAT": item.alamat_ktp,
                 "DESA": item.KELUARAHAN,
@@ -204,8 +252,10 @@
 
             const worksheet = XLSX.utils.json_to_sheet(worksheetData);
             const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Data KPM");
-            XLSX.writeFile(workbook, `Data_SIKSNG_${new Date().getTime()}.xlsx`);
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Data Final Closing");
+            
+            const fileName = `${namaKecamatan}_Final Closing.xlsx`;
+            XLSX.writeFile(workbook, fileName);
         }
     </script>
 </body>
