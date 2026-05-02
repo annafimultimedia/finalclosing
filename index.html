@@ -1,262 +1,250 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Website Convert Final Closing</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>SIKS-NG Final Closing</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        .drop-zone {
-            border: 2px dashed #3b82f6;
-            transition: all 0.3s ease;
-        }
-        .drop-zone.drag-over {
-            background-color: #eff6ff;
-            border-color: #2563eb;
-            transform: scale(1.01);
-        }
-        .table-container {
-            max-height: 500px;
-            overflow-y: auto;
-            overflow-x: auto;
-        }
-        thead th {
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            background-color: #f3f4f6;
-        }
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; background: #2c3e50; color: #fff; }
+        .box { background: white; color: #333; padding: 25px; border-radius: 12px; max-width: 98%; margin: auto; }
+        .header { display: flex; justify-content: space-between; border-bottom: 3px solid #e67e22; padding-bottom: 15px; align-items: center; }
+        #drop-zone { border: 3px dashed #e67e22; border-radius: 10px; padding: 30px; text-align: center; margin: 20px 0; background: #f9f9f9; color: #e67e22; cursor: pointer; }
+        #drop-zone.hover { background: #fff3e0; }
+        #status { padding: 12px; margin: 10px 0; border-radius: 5px; font-weight: bold; text-align: center; border: 1px solid #ccc; }
+        .ok { background: #d4edda; color: #155724; border-color: #c3e6cb !important; }
+        .no { background: #f8d7da; color: #721c24; border-color: #f5c6cb !important; }
+        .table-area { overflow: auto; max-height: 550px; border: 1px solid #ddd; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        th { background: #e67e22; color: white; padding: 10px; position: sticky; top: 0; z-index: 10; white-space: nowrap; }
+        td { border: 1px solid #eee; padding: 6px; white-space: nowrap; color: #333; text-align: center; }
+        tr:nth-child(even) { background: #fcfcfc; }
+        .btn-dl { background: #e67e22; color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        input[type="file"] { display: none; }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen p-4 md:p-8">
+<body>
 
-    <div class="max-w-full mx-auto bg-white rounded-xl shadow-xl overflow-hidden">
-        <div class="bg-blue-600 p-6">
-            <h1 class="text-2xl font-bold text-white">Converter Final Closing to Excel</h1>
-            <p class="text-blue-100 text-sm mt-1">Gunakan fitur drag & drop untuk upload json.</p>
-        </div>
-
-        <div class="p-6">
-            <div id="dropZone" class="drop-zone rounded-xl p-10 text-center cursor-pointer mb-6 group">
-                <div class="space-y-4">
-                    <div class="flex justify-center">
-                        <svg class="w-12 h-12 text-blue-500 group-hover:bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                        </svg>
-                    </div>
-                    <div>
-                        <p class="text-lg font-medium text-gray-700">Tarik & Lepas file JSON di sini</p>
-                        <p class="text-sm text-gray-500">atau klik untuk memilih file dari komputer</p>
-                    </div>
-                    <input type="file" id="fileInput" class="hidden" accept=".json">
-                </div>
-            </div>
-
-            <div id="actions" class="hidden flex justify-end mb-4">
-                <button onclick="exportToExcel()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 shadow-md transition">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"></path></svg>
-                    Export ke Excel (.xlsx)
-                </button>
-            </div>
-
-            <div id="previewContainer" class="hidden border rounded-lg overflow-hidden shadow-inner">
-                <div class="bg-gray-50 px-4 py-2 border-b font-semibold text-gray-600 flex justify-between items-center">
-                    <span>Preview Data (<span id="rowCount">0</span> Baris)</span>
-                    <span class="text-xs text-gray-400 italic">*Scroll ke bawah/samping untuk melihat semua data</span>
-                </div>
-                <div class="table-container">
-                    <table id="dataTable" class="w-full text-left border-collapse text-sm">
-                        <thead>
-                            <tr class="bg-gray-100">
-                                <th class="p-3 border">NO</th>
-                                <th class="p-3 border">NAMA</th>
-                                <th class="p-3 border">NIK</th>
-                                <th class="p-3 border">NO KK</th>
-                                <th class="p-3 border bg-blue-50">TGL LAHIR</th>
-                                <th class="p-3 border bg-blue-50">UMUR</th>
-                                <th class="p-3 border">ART</th>
-                                <th class="p-3 border">HAMIL</th>
-                                <th class="p-3 border">AUD</th>
-                                <th class="p-3 border">SD</th>
-                                <th class="p-3 border">SMP</th>
-                                <th class="p-3 border">SMA</th>
-                                <th class="p-3 border">DISABIL</th>
-                                <th class="p-3 border">LANSIA</th>
-                                <th class="p-3 border">HAM</th>
-                                <th class="p-3 border bg-yellow-100">JML KOMPONEN</th>
-                                <th class="p-3 border">NOMINAL</th>
-                                <th class="p-3 border">ALAMAT</th>
-                                <th class="p-3 border">DESA</th>
-                                <th class="p-3 border">KECAMATAN</th>
-                                <th class="p-3 border">KABUPATEN</th>
-                                <th class="p-3 border">PROVINSI</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+<div class="box">
+    <div class="header">
+        <h2 id="judulHeader">MERGE FINAL CLOSING DAN DATA BAYAR</h2>
+        <button class="btn-dl" onclick="gasDownload()">📥 DOWNLOAD EXCEL (.xlsx)</button>
     </div>
 
-    <script>
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
-        const tableBody = document.getElementById('tableBody');
-        const previewContainer = document.getElementById('previewContainer');
-        const actions = document.getElementById('actions');
-        let rawData = [];
+    <div id="drop-zone"><strong>TARIK FILE FINAL CLOSING & DATA BAYAR KE SINI</strong></div>
+    <input type="file" id="inputJSON" multiple accept=".json">
 
-        dropZone.onclick = () => fileInput.click();
+    <div id="status" class="no">Silahkan masukkan file JSON...</div>
+
+    <div class="table-area">
+        <table id="tbl">
+            <thead>
+                <tr>
+                    <th>NO</th>
+                    <th>NAMA PENERIMA</th>
+                    <th>NIK</th>
+                    <th>NO KK</th>
+                    <th>TGL LAHIR</th>
+                    <th>UMUR</th>
+                    <th>ART</th>
+                    <th>HAMIL</th>
+                    <th>AUD</th>
+                    <th>SD</th>
+                    <th>SMP</th>
+                    <th>SMA</th>
+                    <th>DISABIL</th>
+                    <th>LANSIA</th>
+                    <th>HAM</th>
+                    <th>JML KOMPONEN</th>
+                    <th>NOMINAL</th>
+                    <th>REKENING</th>
+                    <th>STATUS</th>
+                    <th>ALAMAT FC</th>
+                    <th>ALAMAT</th>
+                    <th>RT</th>
+                    <th>RW</th>
+                    <th>KELURAHAN</th>
+                    <th>KECAMATAN</th>
+                    <th>KABUPATEN</th>
+                    <th>PROVINSI</th>
+                </tr>
+            </thead>
+            <tbody id="isi"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+let masterData = {}; 
+
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('inputJSON');
+
+dropZone.onclick = () => fileInput.click();
+dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('hover'); };
+dropZone.ondragleave = () => dropZone.classList.remove('hover');
+dropZone.ondrop = (e) => { e.preventDefault(); dropZone.classList.remove('hover'); handleFiles(e.dataTransfer.files); };
+fileInput.onchange = (e) => handleFiles(e.target.files);
+
+async function handleFiles(files) {
+    masterData = {}; 
+    document.getElementById('status').innerText = "Memproses data...";
+
+    for (let file of files) {
+        try {
+            const text = await file.text();
+            const json = JSON.parse(text);
+            extractRecursive(json);
+        } catch (e) { console.error("Gagal baca JSON", e); }
+    }
+    renderTable();
+}
+
+function extractRecursive(obj) {
+    if (!obj || typeof obj !== 'object') return;
+    if (obj.data && obj.data.data && Array.isArray(obj.data.data.bnba)) {
+        obj.data.data.bnba.forEach(item => mergeData(item));
+        return; 
+    }
+    if (Array.isArray(obj)) {
+        obj.forEach(item => {
+            if (item.NIK || item.nik || item.nomor_nik) mergeData(item);
+            else extractRecursive(item);
+        });
+    } else {
+        if (obj.NIK || obj.nik || obj.nomor_nik) mergeData(obj);
+        for (let k in obj) if (typeof obj[k] === 'object') extractRecursive(obj[k]);
+    }
+}
+
+function mergeData(item) {
+    const rawNik = item.NIK || item.nik || item.nomor_nik;
+    if (!rawNik) return;
+    
+    const nik = rawNik.toString().replace(/['" ]/g, '').trim();
+    
+    if (!masterData[nik]) {
+        masterData[nik] = {
+            NIK: nik, NAMA: '', NOKK: '', TGL_LAHIR: '', UMUR: '',
+            ART: 0, HAMIL: 0, AUD: 0, SD: 0, SMP: 0, SMA: 0, DISABIL: 0, LANSIA: 0, HAM: 0, JML_KOMP: 0, NOMINAL: 0,
+            REKENING: '0', STATUS: '0', ALAMAT_FC: '0', ALAMAT: '0', RT: '000', RW: '000', KEL: '0', KEC: '0', KAB: '0', PROP: '0'
+        };
+    }
+
+    const d = masterData[nik];
+
+    // --- LOGIKA DATA BAYAR (BNBA) ---
+    if (item.rekening_dipakai || item.REKENING_DIPAKAI || item.ALAMAT) {
+        if (!d.NAMA) d.NAMA = (item.NAMA_PENERIMA || item.nama_penerima || '').toString().replace(/['"]/g, '');
+        if (d.NOKK === '' || d.NOKK === '0') d.NOKK = (item.NOKK || item.no_kk || '0').toString().replace(/['" ]/g, '');
         
-        dropZone.ondragover = (e) => {
-            e.preventDefault();
-            dropZone.classList.add('drag-over');
-        };
+        d.REKENING = (item.rekening_dipakai || item.REKENING_DIPAKAI || item.rekening || '0').toString().replace(/['"]/g, '');
+        d.STATUS = item.STATUS_REKENING || item.status || '0';
+        d.ALAMAT = item.ALAMAT || item.alamat_penerima || '0';
 
-        dropZone.ondragleave = () => dropZone.classList.remove('drag-over');
-
-        dropZone.ondrop = (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('drag-over');
-            handleFile(e.dataTransfer.files[0]);
-        };
-
-        fileInput.onchange = (e) => handleFile(e.target.files[0]);
-
-        function handleFile(file) {
-            if (!file || !file.name.endsWith('.json')) {
-                alert('Mohon masukkan file .json yang valid.');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const json = JSON.parse(e.target.result);
-                    rawData = Array.isArray(json) ? json : (json.isi_data || []);
-                    renderTable(rawData);
-                } catch (err) {
-                    alert('Gagal membaca JSON. Pastikan format benar.');
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        // Fungsi merapikan Tanggal Lahir menjadi format DD-MM-YYYY
-        function formatDate(dateStr) {
-            if (!dateStr) return '';
-            const cleanDate = dateStr.substring(0, 10); 
-            return cleanDate.split('-').reverse().join('-');
-        }
-
-        // Fungsi menghitung Umur
-        function calculateAge(dateStr) {
-            if (!dateStr) return 0;
-            const birthDate = new Date(dateStr);
-            const today = new Date();
-            let age = today.getFullYear() - birthDate.getFullYear();
-            const monthDiff = today.getMonth() - birthDate.getMonth();
+        // --- EKSTRAK RT/RW DARI FIELD ALAMAT ---
+        if (d.ALAMAT && d.ALAMAT !== '0') {
+            const rtMatch = d.ALAMAT.match(/RT:(\d+)/i);
+            const rwMatch = d.ALAMAT.match(/RW:(\d+)/i);
             
-            // Cek apakah sudah lewat hari ulang tahun tahun ini
-            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-                age--;
-            }
-            return age;
+            if (rtMatch) d.RT = rtMatch[1].padStart(3, '0');
+            if (rwMatch) d.RW = rwMatch[1].padStart(3, '0');
         }
+        
+        if (d.KEL === '0') d.KEL = (item.KEL_NAME || item.KELURAHAN || '0').toUpperCase();
+        if (d.KEC === '0') d.KEC = (item.KEC_NAME || item.KECAMATAN || '0').toUpperCase();
+    }
 
-        function calculateTotalKomponen(item) {
-            return Number(item.jml_hamil || 0) + 
-                   Number(item.jml_anak_usia_dini || 0) + 
-                   Number(item.jml_anak_sd || 0) + 
-                   Number(item.jml_anak_smp || 0) + 
-                   Number(item.jml_anak_sma || 0) + 
-                   Number(item.jml_disabilitas || 0) + 
-                   Number(item.jml_lansia || 0) + 
-                   Number(item.jml_korban_ham_berat || 0);
+    // --- LOGIKA FINAL CLOSING ---
+    if (item.nominal_total !== undefined || item.jml_art !== undefined || item.nama) {
+        let namaBaru = (item.nama || item.nama_penerima || item.NAMA_PENERIMA || d.NAMA).toString().replace(/['"]/g, '');
+        if (namaBaru) d.NAMA = namaBaru;
+        if (item.no_kk) d.NOKK = item.no_kk.toString().replace(/['" ]/g, '');
+        let rawTgl = item.tgl_lahir || '';
+        if (rawTgl) {
+            d.TGL_LAHIR = rawTgl.split(" ")[0];
+            const thnLahir = new Date(d.TGL_LAHIR).getFullYear();
+            if (!isNaN(thnLahir)) d.UMUR = 2026 - thnLahir;
         }
+        d.ALAMAT_FC = item.alamat_ktp || item.alamat || d.ALAMAT_FC;
+        d.ART = Number(item.jml_art || 0);
+        d.HAMIL = Number(item.jml_hamil || 0);
+        d.AUD = Number(item.jml_anak_usia_dini || 0);
+        d.SD = Number(item.jml_anak_sd || 0);
+        d.SMP = Number(item.jml_anak_smp || 0);
+        d.SMA = Number(item.jml_anak_sma || 0);
+        d.DISABIL = Number(item.jml_disabilitas || 0);
+        d.LANSIA = Number(item.jml_lansia || 0);
+        d.HAM = Number(item.jml_korban_ham_berat || 0);
+        d.JML_KOMP = Number(item.total_komponen || (d.HAMIL + d.AUD + d.SD + d.SMP + d.SMA + d.DISABIL + d.LANSIA + d.HAM));
+        d.NOMINAL = Number(item.nominal_total || 0);
+        if (item.KELUARAHAN) d.KEL = item.KELUARAHAN.toString().toUpperCase();
+        if (item.KECAMATAN) d.KEC = item.KECAMATAN.toString().toUpperCase();
+        if (item.KABUPATEN) d.KAB = item.KABUPATEN.toString().toUpperCase();
+        if (item.PROVINSI) d.PROP = item.PROVINSI.toString().toUpperCase();
+    }
+}
 
-        function renderTable(data) {
-            tableBody.innerHTML = '';
-            document.getElementById('rowCount').innerText = data.length;
-            
-            data.forEach((item, index) => {
-                const totalKomponen = calculateTotalKomponen(item);
-                const tglLahir = formatDate(item.tgl_lahir);
-                const umur = calculateAge(item.tgl_lahir);
+function renderTable() {
+    const isi = document.getElementById('isi');
+    isi.innerHTML = "";
+    const list = Object.values(masterData);
+    const EMPTY_MSG = "DATA TIDAK ADA PADA DATA BAYAR";
 
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-blue-50 transition border-b";
-                tr.innerHTML = `
-                    <td class="p-3 border text-center font-mono">${index + 1}</td>
-                    <td class="p-3 border font-semibold">${item.nama || ''}</td>
-                    <td class="p-3 border">${(item.nik || '').toString().replace(/^'/, '')}</td>
-                    <td class="p-3 border">${(item.no_kk || '').toString().replace(/^'/, '')}</td>
-                    <td class="p-3 border text-center bg-blue-50">${tglLahir}</td>
-                    <td class="p-3 border text-center bg-blue-50 font-bold">${umur}</td>
-                    <td class="p-3 border text-center">${item.jml_art || 0}</td>
-                    <td class="p-3 border text-center">${item.jml_hamil || 0}</td>
-                    <td class="p-3 border text-center">${item.jml_anak_usia_dini || 0}</td>
-                    <td class="p-3 border text-center">${item.jml_anak_sd || 0}</td>
-                    <td class="p-3 border text-center">${item.jml_anak_smp || 0}</td>
-                    <td class="p-3 border text-center">${item.jml_anak_sma || 0}</td>
-                    <td class="p-3 border text-center">${item.jml_disabilitas || 0}</td>
-                    <td class="p-3 border text-center">${item.jml_lansia || 0}</td>
-                    <td class="p-3 border text-center">${item.jml_korban_ham_berat || 0}</td>
-                    <td class="p-3 border text-center font-bold bg-yellow-50 text-blue-800">${totalKomponen}</td>
-                    <td class="p-3 border font-bold text-blue-700">Rp ${Number(item.nominal_total || 0).toLocaleString('id-ID')}</td>
-                    <td class="p-3 border">${item.alamat_ktp || ''}</td>
-                    <td class="p-3 border">${item.KELUARAHAN || ''}</td>
-                    <td class="p-3 border">${item.KECAMATAN || ''}</td>
-                    <td class="p-3 border">${item.KABUPATEN || ''}</td>
-                    <td class="p-3 border">${item.PROVINSI || ''}</td>
-                `;
-                tableBody.appendChild(tr);
-            });
+    list.forEach((d, i) => {
+        const row = isi.insertRow();
+        const rekDisp = (d.REKENING === '0' || d.REKENING === '') ? EMPTY_MSG : d.REKENING;
+        const statDisp = (d.STATUS === '0' || d.STATUS === '') ? EMPTY_MSG : d.STATUS;
+        const almtDisp = (d.ALAMAT === '0' || d.ALAMAT === '') ? EMPTY_MSG : d.ALAMAT;
 
-            previewContainer.classList.remove('hidden');
-            actions.classList.remove('hidden');
-            dropZone.classList.add('hidden');
-        }
+        row.innerHTML = `
+            <td>${i + 1}</td>
+            <td style="text-align:left">${d.NAMA || '-'}</td>
+            <td>${d.NIK}</td>
+            <td>${d.NOKK}</td>
+            <td>${d.TGL_LAHIR}</td>
+            <td>${d.UMUR}</td>
+            <td>${d.ART}</td>
+            <td>${d.HAMIL}</td>
+            <td>${d.AUD}</td>
+            <td>${d.SD}</td>
+            <td>${d.SMP}</td>
+            <td>${d.SMA}</td>
+            <td>${d.DISABIL}</td>
+            <td>${d.LANSIA}</td>
+            <td>${d.HAM}</td>
+            <td>${d.JML_KOMP}</td>
+            <td>${d.NOMINAL}</td>
+            <td>${rekDisp}</td>
+            <td>${statDisp}</td>
+            <td style="text-align:left">${d.ALAMAT_FC}</td>
+            <td style="text-align:left">${almtDisp}</td>
+            <td>${d.RT}</td>
+            <td>${d.RW}</td>
+            <td>${d.KEL}</td>
+            <td>${d.KEC}</td>
+            <td>${d.KAB}</td>
+            <td>${d.PROP}</td>
+        `;
+    });
 
-        function exportToExcel() {
-            if (rawData.length === 0) return;
+    const st = document.getElementById('status');
+    if (list.length > 0) {
+        st.className = "ok";
+        st.innerHTML = `✅ Berhasil: ${list.length} Data diproses.`;
+    } else {
+        st.className = "no";
+        st.innerText = "Data tidak ditemukan.";
+    }
+}
 
-            const namaKecamatan = rawData[0].KECAMATAN || 'DATA';
-
-            const worksheetData = rawData.map((item, index) => ({
-                "NO": index + 1,
-                "NAMA": item.nama,
-                "NIK": (item.nik || '').toString().replace(/^'/, ''),
-                "NO KK": (item.no_kk || '').toString().replace(/^'/, ''),
-                "TGL LAHIR": formatDate(item.tgl_lahir),
-                "UMUR": calculateAge(item.tgl_lahir),
-                "ART": item.jml_art,
-                "HAMIL": item.jml_hamil,
-                "AUD": item.jml_anak_usia_dini,
-                "SD": item.jml_anak_sd,
-                "SMP": item.jml_anak_smp,
-                "SMA": item.jml_anak_sma,
-                "DISABIL": item.jml_disabilitas,
-                "LANSIA": item.jml_lansia,
-                "HAM": item.jml_korban_ham_berat,
-                "JML KOMPONEN": calculateTotalKomponen(item),
-                "NOMINAL": Number(item.nominal_total),
-                "ALAMAT": item.alamat_ktp,
-                "DESA": item.KELUARAHAN,
-                "KECAMATAN": item.KECAMATAN,
-                "KABUPATEN": item.KABUPATEN,
-                "PROVINSI": item.PROVINSI
-            }));
-
-            const worksheet = XLSX.utils.json_to_sheet(worksheetData);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Data Final Closing");
-            
-            const fileName = `${namaKecamatan}_Final Closing.xlsx`;
-            XLSX.writeFile(workbook, fileName);
-        }
-    </script>
+function gasDownload() {
+    const dataArray = Object.values(masterData);
+    if (dataArray.length === 0) return alert("Pilih file dulu!");
+    let namaKecamatan = dataArray[0].KEC;
+    if (namaKecamatan === '0' || !namaKecamatan) namaKecamatan = "HASIL_MERGER";
+    const wb = XLSX.utils.table_to_book(document.getElementById("tbl"), {raw: true});
+    XLSX.writeFile(wb, `${namaKecamatan.toUpperCase()}_Final_Closing.xlsx`);
+}
+</script>
 </body>
 </html>
