@@ -58,7 +58,7 @@
                     <th>NOMINAL</th>
                     <th>REKENING</th>
                     <th>STATUS</th>
-                    <th>ALAMAT FC</th>
+                    <th>ALAMAT_FC</th>
                     <th>ALAMAT</th>
                     <th>RT</th>
                     <th>RW</th>
@@ -240,10 +240,17 @@ function renderTable() {
 function gasDownload() {
     const dataArray = Object.values(masterData);
     if (dataArray.length === 0) return alert("Pilih file dulu!");
+    
     let namaKecamatan = dataArray[0].KEC;
-    if (namaKecamatan === '0' || !namaKecamatan) namaKecamatan = "HASIL_MERGER";
+    if (namaKecamatan === '0' || !namaKecamatan) {
+        namaKecamatan = "HASIL_MERGER";
+    }
+    
+    // Format nama file baru sesuai instruksi
+    const namaFile = `${namaKecamatan.toUpperCase()}_Final Closing_14062026_1255.xlsx`;
+    
     const wb = XLSX.utils.table_to_book(document.getElementById("tbl"), {raw: true});
-    XLSX.writeFile(wb, `${namaKecamatan.toUpperCase()}_Final_Closing.xlsx`);
+    XLSX.writeFile(wb, namaFile);
 }
 </script>
 </body>
