@@ -26,12 +26,12 @@
 
 <div class="box">
     <div class="header">
-        <h2 id="judulHeader">MERGE FINAL CLOSING DAN DATA BAYAR</h2>
+        <h2 id="judulHeader">MERGE FINAL CLOSING DAN CSV PENYALURAN</h2>
         <button class="btn-dl" onclick="gasDownload()">📥 DOWNLOAD EXCEL (.xlsx)</button>
     </div>
 
-    <div id="drop-zone"><strong>TARIK FILE FINAL CLOSING & DATA BAYAR KE SINI</strong></div>
-    <input type="file" id="inputJSON" multiple accept=".json">
+    <div id="drop-zone"><strong>TARIK FILE FINAL CLOSING (.json) & FILE PENYALURAN (.csv) KE SINI</strong></div>
+    <input type="file" id="inputJSON" multiple accept=".json,.csv,text/csv,application/json">
 
     <div id="status" class="no">Silahkan masukkan file JSON...</div>
 
@@ -74,7 +74,8 @@
 </div>
 
 <script>
-let masterData = {}; 
+let masterData = {};
+let csvByKK = {};
 
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('inputJSON');
@@ -86,17 +87,65 @@ dropZone.ondrop = (e) => { e.preventDefault(); dropZone.classList.remove('hover'
 fileInput.onchange = (e) => handleFiles(e.target.files);
 
 async function handleFiles(files) {
-    masterData = {}; 
+    masterData = {};
+    csvByKK = {};
     document.getElementById('status').innerText = "Memproses data...";
 
     for (let file of files) {
+        if (!file.name.toLowerCase().endsWith('.json')) continue;
         try {
             const text = await file.text();
             const json = JSON.parse(text);
             extractRecursive(json);
-        } catch (e) { console.error("Gagal baca JSON", e); }
+        } catch (e) { console.error(`Gagal baca JSON ${file.name}`, e); }
     }
+    for (let file of files) {
+        if (!file.name.toLowerCase().endsWith('.csv')) continue;
+        try { parseCsvPenyaluran(await file.text(), file.name); }
+        catch (e) { console.error(`Gagal baca CSV ${file.name}`, e); }
+    }
+    gabungkanCsvKeFinalClosing();
     renderTable();
+}
+
+function cleanNumber(value) {
+    return (value ?? '').toString().replace(/['"\s]/g, '').trim();
+}
+
+function parseCsvPenyaluran(text, sourceFile) {
+    const workbook = XLSX.read(text, { type: 'string', FS: '|' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+    rows.forEach(row => {
+        const kk = cleanNumber(row.NOKK || row['NO KK'] || row.no_kk);
+        if (!kk) return;
+        csvByKK[kk] = {
+            ALAMAT: (row.ALAMAT || row.alamat || '').toString().trim(),
+            STATUS: (row.status || row.STATUS || '').toString().trim(),
+            KEL: (row.KEL_NAME || '').toString().trim(),
+            KEC: (row.KEC_NAME || '').toString().trim(),
+            KAB: (row.KAB_NAME || '').toString().trim(),
+            PROP: (row.PROP_NAME || '').toString().trim(),
+            SOURCE: sourceFile
+        };
+    });
+}
+
+function gabungkanCsvKeFinalClosing() {
+    Object.values(masterData).forEach(d => {
+        const bayar = csvByKK[cleanNumber(d.NOKK)];
+        if (!bayar) return;
+        d.ALAMAT = bayar.ALAMAT || '0';
+        d.STATUS = bayar.STATUS || '0';
+        d.SOURCE_CSV = bayar.SOURCE;
+        if (bayar.KEL) d.KEL = bayar.KEL.toUpperCase();
+        if (bayar.KEC) d.KEC = bayar.KEC.toUpperCase();
+        if (bayar.PROP) d.PROP = bayar.PROP.toUpperCase();
+        const rtMatch = d.ALAMAT.match(/RT\s*:?\s*0*(\d+)/i);
+        const rwMatch = d.ALAMAT.match(/RW\s*:?\s*0*(\d+)/i);
+        if (rtMatch) d.RT = rtMatch[1].padStart(3, '0');
+        if (rwMatch) d.RW = rwMatch[1].padStart(3, '0');
+    });
 }
 
 function extractRecursive(obj) {
@@ -119,6 +168,20 @@ function extractRecursive(obj) {
 function mergeData(item) {
     const rawNik = item.NIK || item.nik || item.nomor_nik;
     if (!rawNik) return;
+
+    // Dukungan JSON data bayar yang strukturnya menyerupai baris CSV.
+    const bayarKK = cleanNumber(item.NOKK || item.no_kk);
+    if (bayarKK && (item.ALAMAT !== undefined || item.alamat_penerima !== undefined) &&
+        (item.status !== undefined || item.STATUS !== undefined || item.STATUS_REKENING !== undefined)) {
+        csvByKK[bayarKK] = {
+            ALAMAT: (item.ALAMAT || item.alamat_penerima || '').toString().trim(),
+            STATUS: (item.status || item.STATUS || item.STATUS_REKENING || '').toString().trim(),
+            KEL: (item.KEL_NAME || item.KELURAHAN || '').toString().trim(),
+            KEC: (item.KEC_NAME || item.KECAMATAN || '').toString().trim(),
+            PROP: (item.PROP_NAME || item.PROVINSI || '').toString().trim(),
+            SOURCE: 'JSON data bayar'
+        };
+    }
     
     const nik = rawNik.toString().replace(/['" ]/g, '').trim();
     
@@ -158,7 +221,7 @@ function mergeData(item) {
     if (item.nominal_total !== undefined || item.jml_art !== undefined || item.nama) {
         let namaBaru = (item.nama || item.nama_penerima || item.NAMA_PENERIMA || d.NAMA).toString().replace(/['"]/g, '');
         if (namaBaru) d.NAMA = namaBaru;
-        if (item.no_kk) d.NOKK = item.no_kk.toString().replace(/['" ]/g, '');
+        if (item.no_kk) d.NOKK = cleanNumber(item.no_kk);
         let rawTgl = item.tgl_lahir || '';
         if (rawTgl) {
             d.TGL_LAHIR = rawTgl.split(" ")[0];
@@ -188,6 +251,7 @@ function renderTable() {
     const isi = document.getElementById('isi');
     isi.innerHTML = "";
     const list = Object.values(masterData);
+    const matched = list.filter(d => d.SOURCE_CSV).length;
     const EMPTY_MSG = "DATA TIDAK ADA PADA DATA BAYAR";
 
     list.forEach((d, i) => {
@@ -230,7 +294,7 @@ function renderTable() {
     const st = document.getElementById('status');
     if (list.length > 0) {
         st.className = "ok";
-        st.innerHTML = `✅ Berhasil: ${list.length} Data diproses.`;
+        st.innerHTML = `Final Closing: ${list.length} data. Cocok CSV berdasarkan No KK: ${matched}. Tidak cocok: ${list.length - matched}.`;
     } else {
         st.className = "no";
         st.innerText = "Data tidak ditemukan.";
